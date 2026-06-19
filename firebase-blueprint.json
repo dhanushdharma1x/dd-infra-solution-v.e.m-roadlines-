@@ -1,0 +1,198 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "System user with role (admin or staff)",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "email": { "type": "string" },
+        "name": { "type": "string" },
+        "role": { "type": "string", "enum": ["admin", "staff"] }
+      },
+      "required": ["id", "email", "name", "role"]
+    },
+    "Machine": {
+      "title": "Machine",
+      "description": "Construction equipment details",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "type": { "type": "string" },
+        "registrationNumber": { "type": "string" },
+        "currentSite": { "type": "string" },
+        "assignedOperator": { "type": "string" },
+        "status": { "type": "string", "enum": ["Working", "Idle", "Repair"] },
+        "purchaseDate": { "type": "string" },
+        "notes": { "type": "string" }
+      },
+      "required": ["id", "name", "type", "registrationNumber", "status"]
+    },
+    "Operator": {
+      "title": "Operator",
+      "description": "Operator profile details",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "phone": { "type": "string" },
+        "monthlySalary": { "type": "number" },
+        "advanceGiven": { "type": "number" },
+        "pendingSalary": { "type": "number" }
+      },
+      "required": ["id", "name", "monthlySalary"]
+    },
+    "Client": {
+      "title": "Client",
+      "description": "Client profile details",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "siteName": { "type": "string" },
+        "contactNumber": { "type": "string" },
+        "notes": { "type": "string" }
+      },
+      "required": ["id", "name", "siteName"]
+    },
+    "DailyWorkEntry": {
+      "title": "DailyWorkEntry",
+      "description": "Work entry completed on a day",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "date": { "type": "string" },
+        "machineId": { "type": "string" },
+        "machineName": { "type": "string" },
+        "operatorId": { "type": "string" },
+        "operatorName": { "type": "string" },
+        "site": { "type": "string" },
+        "clientId": { "type": "string" },
+        "clientName": { "type": "string" },
+        "startTime": { "type": "string" },
+        "endTime": { "type": "string" },
+        "workingHours": { "type": "number" },
+        "hourlyRate": { "type": "number" },
+        "earnings": { "type": "number" },
+        "billed": { "type": "boolean" },
+        "billId": { "type": "string" }
+      },
+      "required": ["id", "date", "machineId", "operatorId", "clientId", "workingHours", "hourlyRate", "earnings"]
+    },
+    "Expense": {
+      "title": "Expense",
+      "description": "Operational expenses related to machines",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "date": { "type": "string" },
+        "machineId": { "type": "string" },
+        "machineName": { "type": "string" },
+        "dieselLiters": { "type": "number" },
+        "dieselCost": { "type": "number" },
+        "dieselPaymentType": { "type": "string", "enum": ["Cash", "Credit"] },
+        "dieselPaidStatus": { "type": "string", "enum": ["Paid", "Pending"] },
+        "repairCost": { "type": "number" },
+        "sparePartsCost": { "type": "number" },
+        "serviceCost": { "type": "number" },
+        "miscellaneousCost": { "type": "number" },
+        "notes": { "type": "string" }
+      },
+      "required": ["id", "date", "machineId"]
+    },
+    "SalaryRecord": {
+      "title": "SalaryRecord",
+      "description": "Salary tracking records for operator payments",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "date": { "type": "string" },
+        "operatorId": { "type": "string" },
+        "operatorName": { "type": "string" },
+        "salaryAmount": { "type": "number" },
+        "advanceAmount": { "type": "number" },
+        "pendingSalary": { "type": "number" },
+        "notes": { "type": "string" }
+      },
+      "required": ["id", "date", "operatorId", "salaryAmount"]
+    },
+    "ClientBill": {
+      "title": "ClientBill",
+      "description": "Bill summary generated for clients",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "date": { "type": "string" },
+        "clientId": { "type": "string" },
+        "clientName": { "type": "string" },
+        "siteName": { "type": "string" },
+        "machineUsed": { "type": "string" },
+        "hoursWorked": { "type": "number" },
+        "ratePerHour": { "type": "number" },
+        "totalBillAmount": { "type": "number" },
+        "amountReceived": { "type": "number" },
+        "pendingAmount": { "type": "number" },
+        "paymentType": { "type": "string", "enum": ["Immediate", "Credit", "Partial"] },
+        "expectedPaymentDate": { "type": "string" },
+        "actualPaymentDate": { "type": "string" },
+        "paymentStatus": { "type": "string", "enum": ["Paid", "Partially Paid", "Pending", "Overdue"] }
+      },
+      "required": ["id", "date", "clientId", "totalBillAmount", "paymentStatus"]
+    },
+    "PaymentHistory": {
+      "title": "PaymentHistory",
+      "description": "Historical record of payments received from a client",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "date": { "type": "string" },
+        "clientId": { "type": "string" },
+        "clientName": { "type": "string" },
+        "billId": { "type": "string" },
+        "amountReceived": { "type": "number" },
+        "remainingBalance": { "type": "number" },
+        "notes": { "type": "string" }
+      },
+      "required": ["id", "date", "clientId", "amountReceived"]
+    }
+  },
+  "firestore": {
+    "users": {
+      "schema": "User",
+      "description": "Users of the DD Infra platform"
+    },
+    "machines": {
+      "schema": "Machine",
+      "description": "List of construction machines"
+    },
+    "operators": {
+      "schema": "Operator",
+      "description": "Registered operators"
+    },
+    "clients": {
+      "schema": "Client",
+      "description": "Workspace client profiles"
+    },
+    "dailyWorkEntries": {
+      "schema": "DailyWorkEntry",
+      "description": "Operator recorded machine logs"
+    },
+    "expenses": {
+      "schema": "Expense",
+      "description": "Fuel, repair and miscellaneous costs"
+    },
+    "salaryRecords": {
+      "schema": "SalaryRecord",
+      "description": "Operator payouts and advances logs"
+    },
+    "clientBills": {
+      "schema": "ClientBill",
+      "description": "Invoicing structure for clients"
+    },
+    "paymentHistory": {
+      "schema": "PaymentHistory",
+      "description": "Incoming bank/cash historical transfers"
+    }
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "name": "DD Infra Solutions Management System",
+  "description": "Complete operations, fleet tracking, fuel tracking, diesel credits, payroll management, and client invoicing system for construction equipment businesses.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
