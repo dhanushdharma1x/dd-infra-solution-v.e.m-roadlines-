@@ -59,6 +59,7 @@ export interface DailyWorkEntry {
   tripsCount?: number;
   pricePerLoad?: number;
   dailyRentalRate?: number;
+  notes?: string;
 }
 
 export interface Expense {

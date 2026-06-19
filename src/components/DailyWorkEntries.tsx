@@ -49,7 +49,55 @@ export default function DailyWorkEntries({
   const [pricePerLoad, setPricePerLoad] = useState<number>(1500);
   const [dailyRentalRate, setDailyRentalRate] = useState<number>(8000);
   const [error, setError] = useState('');
+  const [workNotes, setWorkNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
+
+  const validateWorkEntryConstraints = (
+    entryId: string | undefined,
+    mId: string,
+    entryDate: string,
+    startT: string,
+    endT: string,
+    workHrs: number
+  ): string | null => {
+    const dayEntriesForMachine = workEntries.filter(
+      (entry) =>
+        entry.machineId === mId &&
+        entry.date === entryDate &&
+        entry.id !== entryId
+    );
+
+    const totalExistingHours = dayEntriesForMachine.reduce(
+      (sum, entry) => sum + (entry.workingHours || 0),
+      0
+    );
+    if (totalExistingHours + workHrs > 24) {
+      const mName = machines.find(m => m.id === mId)?.name || 'selected machine';
+      return `Validation Error: Total working hours for ${mName} on ${entryDate} cannot exceed 24 hours. (Currently logged: ${totalExistingHours} hrs, trying to add ${workHrs} hrs).`;
+    }
+
+    const toMinutes = (timeStr: string) => {
+      const [h, m] = timeStr.split(':').map(Number);
+      return (Number(h) || 0) * 60 + (Number(m) || 0);
+    };
+
+    const newStartMin = toMinutes(startT);
+    const newEndMin = toMinutes(endT);
+
+    for (const entry of dayEntriesForMachine) {
+      if (entry.startTime && entry.endTime) {
+        const existingStartMin = toMinutes(entry.startTime);
+        const existingEndMin = toMinutes(entry.endTime);
+        
+        if (newStartMin < existingEndMin && existingStartMin < newEndMin) {
+          const overlapMsg = `Overlapping Time Slot Error: Another work session exists for this machine from ${entry.startTime} to ${entry.endTime} on ${entryDate}.`;
+          return overlapMsg;
+        }
+      }
+    }
+
+    return null;
+  };
 
   // Quick Inline Add Forms State
   const [showQuickClient, setShowQuickClient] = useState(false);
@@ -228,6 +276,7 @@ export default function DailyWorkEntries({
     setPricePerLoad(1500);
     setDailyRentalRate(8000);
     setError('');
+    setWorkNotes('');
   };
 
   const handleCreate = async (e: React.FormEvent) => {
@@ -243,6 +292,21 @@ export default function DailyWorkEntries({
       const mac = machines.find(m => m.id === selectedMachineId)!;
       const op = operators.find(o => o.id === selectedOperatorId)!;
       const cl = clients.find(c => c.id === selectedClientId)!;
+
+      // Run overlap and hours validation
+      const validationError = validateWorkEntryConstraints(
+        undefined,
+        selectedMachineId,
+        date,
+        startTime,
+        endTime,
+        computedHours
+      );
+      if (validationError) {
+        setError(validationError);
+        setSubmitting(false);
+        return;
+      }
 
       const newId = `work_${Date.now()}`;
       const entryDoc: DailyWorkEntry = {
@@ -265,7 +329,8 @@ export default function DailyWorkEntries({
         billingMode,
         tripsCount: billingMode === 'load' ? Number(tripsCount) : 0,
         pricePerLoad: billingMode === 'load' ? Number(pricePerLoad) : 1500,
-        dailyRentalRate: billingMode === 'daily' ? Number(dailyRentalRate) : 8000
+        dailyRentalRate: billingMode === 'daily' ? Number(dailyRentalRate) : 8000,
+        notes: workNotes.trim()
       };
 
       await setDoc(doc(db, 'dailyWorkEntries', newId), entryDoc);
@@ -304,6 +369,7 @@ export default function DailyWorkEntries({
     setTripsCount(entry.tripsCount || 0);
     setPricePerLoad(entry.pricePerLoad || 1500);
     setDailyRentalRate(entry.dailyRentalRate || 8000);
+    setWorkNotes(entry.notes || '');
   };
 
   const handleUpdate = async (e: React.FormEvent) => {
@@ -317,6 +383,21 @@ export default function DailyWorkEntries({
       const mac = machines.find(m => m.id === selectedMachineId)!;
       const op = operators.find(o => o.id === selectedOperatorId)!;
       const cl = clients.find(c => c.id === selectedClientId)!;
+
+      // Run overlap and hours validation
+      const validationError = validateWorkEntryConstraints(
+        editingEntry.id,
+        selectedMachineId,
+        date,
+        startTime,
+        endTime,
+        computedHours
+      );
+      if (validationError) {
+        setError(validationError);
+        setSubmitting(false);
+        return;
+      }
 
       const updatedDoc: DailyWorkEntry = {
         ...editingEntry,
@@ -337,7 +418,8 @@ export default function DailyWorkEntries({
         billingMode,
         tripsCount: billingMode === 'load' ? Number(tripsCount) : 0,
         pricePerLoad: billingMode === 'load' ? Number(pricePerLoad) : 1500,
-        dailyRentalRate: billingMode === 'daily' ? Number(dailyRentalRate) : 8000
+        dailyRentalRate: billingMode === 'daily' ? Number(dailyRentalRate) : 8000,
+        notes: workNotes.trim()
       };
 
       await setDoc(doc(db, 'dailyWorkEntries', editingEntry.id), updatedDoc);
@@ -464,12 +546,17 @@ export default function DailyWorkEntries({
                       </div>
                     </div>
                   </td>
-                  <td className="py-3.5 px-4">
+                  <td className="py-3.5 px-4 font-medium">
                     <div>
                       <div className="font-extrabold text-slate-900 text-xs max-w-xs truncate">{entry.clientName}</div>
                       <div className="text-slate-450 text-[10px] mt-0.5 max-w-xs truncate flex items-center gap-1 font-semibold">
                         <Briefcase className="h-3 w-3 text-slate-450" /> {entry.site}
                       </div>
+                      {entry.notes && (
+                        <div className="text-[10px] text-slate-500 italic mt-1 bg-slate-550/5 border border-slate-200/50 rounded px-1.5 py-0.5 max-w-xs break-words">
+                          Note: {entry.notes}
+                        </div>
+                      )}
                     </div>
                   </td>
                   <td className="py-3.5 px-4 text-slate-800 font-bold">
@@ -795,6 +882,17 @@ export default function DailyWorkEntries({
                     />
                   </div>
                 ) : null}
+
+                <div className="col-span-2">
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-1">Session Notes / Work Remarks</label>
+                  <textarea
+                    rows={2}
+                    value={workNotes}
+                    onChange={(e) => setWorkNotes(e.target.value)}
+                    placeholder="Describe specific work done, delays, or custom task descriptions..."
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-semibold text-slate-800 focus:outline-none focus:ring-1 focus:ring-amber-500"
+                  />
+                </div>
 
                 <div className="col-span-2 bg-slate-50 p-4 rounded-xl border border-slate-250 font-bold space-y-1.5 shadow-xs">
                   <span className="text-[9px] text-slate-450 block uppercase tracking-wider font-extrabold">AUTO CALCULATION PREVIEW</span>
