@@ -36,6 +36,8 @@ export default function ExpensesList({
   const [serviceCost, setServiceCost] = useState<number>(0);
   const [miscellaneousCost, setMiscellaneousCost] = useState<number>(0);
   const [notes, setNotes] = useState('');
+  const [openingMeterHours, setOpeningMeterHours] = useState<number>(0);
+  const [closingMeterHours, setClosingMeterHours] = useState<number>(0);
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
@@ -72,6 +74,8 @@ export default function ExpensesList({
     setSparePartsCost(0);
     setServiceCost(0);
     setMiscellaneousCost(0);
+    setOpeningMeterHours(0);
+    setClosingMeterHours(0);
     setNotes('');
     setError('');
   };
@@ -102,16 +106,26 @@ export default function ExpensesList({
         sparePartsCost,
         serviceCost,
         miscellaneousCost,
-        notes
+        notes,
+        openingMeterHours: dieselLiters > 0 ? Number(openingMeterHours) || 0 : undefined,
+        closingMeterHours: dieselLiters > 0 ? Number(closingMeterHours) || 0 : undefined
       };
 
       await setDoc(doc(db, 'expenses', newId), expenseDoc);
       
-      // If there are repair costs, transition machine status to Repair or Idle to notify crew
+      // Update machine metadata: transitions status (Repairs) and current cumulative machine hours
+      const updatedMacFields: any = {};
       if (repairCost > 0 && mac.status !== 'Repair') {
+        updatedMacFields.status = 'Repair';
+      }
+      if (dieselLiters > 0 && closingMeterHours > 0 && Number(closingMeterHours) > (mac.currentMachineHours || 0)) {
+        updatedMacFields.currentMachineHours = Number(closingMeterHours);
+      }
+      
+      if (Object.keys(updatedMacFields).length > 0) {
         await setDoc(doc(db, 'machines', selectedMachineId), {
           ...mac,
-          status: 'Repair'
+          ...updatedMacFields
         });
       }
 
@@ -139,6 +153,8 @@ export default function ExpensesList({
     setSparePartsCost(exp.sparePartsCost);
     setServiceCost(exp.serviceCost);
     setMiscellaneousCost(exp.miscellaneousCost);
+    setOpeningMeterHours(exp.openingMeterHours || 0);
+    setClosingMeterHours(exp.closingMeterHours || 0);
     setNotes(exp.notes);
   };
 
@@ -164,10 +180,25 @@ export default function ExpensesList({
         sparePartsCost,
         serviceCost,
         miscellaneousCost,
-        notes
+        notes,
+        openingMeterHours: dieselLiters > 0 ? Number(openingMeterHours) || 0 : undefined,
+        closingMeterHours: dieselLiters > 0 ? Number(closingMeterHours) || 0 : undefined
       };
 
       await setDoc(doc(db, 'expenses', editingExpense.id), updatedDoc);
+      
+      // Update machine cumulative hours if closing meter hours exceeded previous reading
+      const updatedMacFields: any = {};
+      if (dieselLiters > 0 && closingMeterHours > 0 && Number(closingMeterHours) > (mac.currentMachineHours || 0)) {
+        updatedMacFields.currentMachineHours = Number(closingMeterHours);
+      }
+      
+      if (Object.keys(updatedMacFields).length > 0) {
+        await setDoc(doc(db, 'machines', selectedMachineId), {
+          ...mac,
+          ...updatedMacFields
+        });
+      }
       
       setEditingExpense(null);
       if (onFormCloseDirectly) onFormCloseDirectly();
@@ -459,6 +490,30 @@ export default function ExpensesList({
                         <option value="Paid">Paid</option>
                         <option value="Pending">Pending</option>
                       </select>
+                    </div>
+                  </div>
+
+                  {/* Meter hours for diesel efficiency tracking */}
+                  <div className="grid grid-cols-2 gap-2 text-[9px] border-t border-slate-200 pt-2.5">
+                    <div>
+                      <label className="block text-slate-500 font-extrabold mb-0.5 uppercase">Opening Meter</label>
+                      <input
+                        type="number"
+                        value={openingMeterHours || ''}
+                        onChange={(e) => setOpeningMeterHours(Number(e.target.value))}
+                        placeholder="e.g. 1200"
+                        className="w-full bg-white border border-slate-200 rounded-lg py-1 px-1.5 text-[10px] font-bold text-slate-700 focus:outline-none focus:ring-1 focus:ring-amber-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-slate-500 font-extrabold mb-0.5 uppercase">Closing Meter</label>
+                      <input
+                        type="number"
+                        value={closingMeterHours || ''}
+                        onChange={(e) => setClosingMeterHours(Number(e.target.value))}
+                        placeholder="e.g. 1215"
+                        className="w-full bg-white border border-slate-200 rounded-lg py-1 px-1.5 text-[10px] font-bold text-slate-700 focus:outline-none focus:ring-1 focus:ring-amber-500"
+                      />
                     </div>
                   </div>
                 </div>

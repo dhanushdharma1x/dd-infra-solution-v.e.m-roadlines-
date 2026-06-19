@@ -44,6 +44,10 @@ export default function DailyWorkEntries({
   const [endTime, setEndTime] = useState('17:00');
   const [hourlyRate, setHourlyRate] = useState<number>(1000);
   const [breakMinutes, setBreakMinutes] = useState<number>(0);
+  const [billingMode, setBillingMode] = useState<'hourly' | 'load' | 'daily'>('hourly');
+  const [tripsCount, setTripsCount] = useState<number>(0);
+  const [pricePerLoad, setPricePerLoad] = useState<number>(1500);
+  const [dailyRentalRate, setDailyRentalRate] = useState<number>(8000);
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
@@ -88,10 +92,20 @@ export default function DailyWorkEntries({
       if (macDoc.currentSite) {
         setSite(macDoc.currentSite);
       }
-      // Proportional default rate based on machine size
-      if (macDoc.name.includes('Kubota')) setHourlyRate(900);
-      else if (macDoc.name.includes('Tata')) setHourlyRate(1300);
-      else setHourlyRate(1100);
+      
+      const isTipper = (macDoc.type || '').toLowerCase().includes('tipper') || (macDoc.name || '').toLowerCase().includes('tipper');
+      if (isTipper) {
+        setBillingMode('load');
+        setTripsCount(5); // default to 5 load/trips
+        setPricePerLoad(1500);
+        setDailyRentalRate(8000);
+      } else {
+        setBillingMode('hourly');
+        // Proportional default rate based on machine size
+        if (macDoc.name.includes('Kubota')) setHourlyRate(900);
+        else if (macDoc.name.includes('Tata')) setHourlyRate(1300);
+        else setHourlyRate(1100);
+      }
     }
   };
 
@@ -190,8 +204,14 @@ export default function DailyWorkEntries({
   }, [startTime, endTime, breakMinutes]);
 
   const computedEarnings = useMemo(() => {
-    return Math.round(computedHours * hourlyRate);
-  }, [computedHours, hourlyRate]);
+    if (billingMode === 'load') {
+      return Math.round(tripsCount * pricePerLoad);
+    } else if (billingMode === 'daily') {
+      return Math.round(dailyRentalRate);
+    } else {
+      return Math.round(computedHours * hourlyRate);
+    }
+  }, [billingMode, tripsCount, pricePerLoad, dailyRentalRate, computedHours, hourlyRate]);
 
   const resetForm = () => {
     setDate(new Date().toISOString().split('T')[0]);
@@ -203,6 +223,10 @@ export default function DailyWorkEntries({
     setEndTime('17:00');
     setHourlyRate(1000);
     setBreakMinutes(0);
+    setBillingMode('hourly');
+    setTripsCount(0);
+    setPricePerLoad(1500);
+    setDailyRentalRate(8000);
     setError('');
   };
 
@@ -237,7 +261,11 @@ export default function DailyWorkEntries({
         hourlyRate,
         earnings: computedEarnings,
         breakMinutes: Number(breakMinutes) || 0,
-        billed: false
+        billed: false,
+        billingMode,
+        tripsCount: billingMode === 'load' ? Number(tripsCount) : 0,
+        pricePerLoad: billingMode === 'load' ? Number(pricePerLoad) : 1500,
+        dailyRentalRate: billingMode === 'daily' ? Number(dailyRentalRate) : 8000
       };
 
       await setDoc(doc(db, 'dailyWorkEntries', newId), entryDoc);
@@ -272,6 +300,10 @@ export default function DailyWorkEntries({
     setEndTime(entry.endTime);
     setHourlyRate(entry.hourlyRate);
     setBreakMinutes(entry.breakMinutes || 0);
+    setBillingMode(entry.billingMode || 'hourly');
+    setTripsCount(entry.tripsCount || 0);
+    setPricePerLoad(entry.pricePerLoad || 1500);
+    setDailyRentalRate(entry.dailyRentalRate || 8000);
   };
 
   const handleUpdate = async (e: React.FormEvent) => {
@@ -301,7 +333,11 @@ export default function DailyWorkEntries({
         workingHours: computedHours,
         hourlyRate,
         earnings: computedEarnings,
-        breakMinutes: Number(breakMinutes) || 0
+        breakMinutes: Number(breakMinutes) || 0,
+        billingMode,
+        tripsCount: billingMode === 'load' ? Number(tripsCount) : 0,
+        pricePerLoad: billingMode === 'load' ? Number(pricePerLoad) : 1500,
+        dailyRentalRate: billingMode === 'daily' ? Number(dailyRentalRate) : 8000
       };
 
       await setDoc(doc(db, 'dailyWorkEntries', editingEntry.id), updatedDoc);
@@ -437,17 +473,37 @@ export default function DailyWorkEntries({
                     </div>
                   </td>
                   <td className="py-3.5 px-4 text-slate-800 font-bold">
-                    <div className="flex items-center gap-1">
-                      <Clock className="h-3.5 w-3.5 text-amber-500" />
-                      <span>{entry.workingHours} hrs</span>
-                    </div>
-                    <span className="text-[9px] text-slate-400 font-bold block">({entry.startTime} - {entry.endTime})</span>
-                    {entry.breakMinutes ? (
-                      <span className="text-[9px] text-rose-500 font-extrabold block mt-0.5">(- {entry.breakMinutes}m break)</span>
-                    ) : null}
+                    {entry.billingMode === 'load' ? (
+                      <div>
+                        <span className="inline-flex px-2 py-0.5 rounded-full text-[9px] font-extrabold bg-blue-50 text-blue-700 border border-blue-100 uppercase tracking-wider mb-1">Load Basis</span>
+                        <div className="text-xs font-bold text-slate-900">{entry.tripsCount || 0} Loads</div>
+                      </div>
+                    ) : entry.billingMode === 'daily' ? (
+                      <div>
+                        <span className="inline-flex px-2 py-0.5 rounded-full text-[9px] font-extrabold bg-purple-50 text-purple-700 border border-purple-100 uppercase tracking-wider mb-1">Daily Flat</span>
+                        <div className="text-xs font-bold text-slate-900">1 Day Rental</div>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="flex items-center gap-1">
+                          <Clock className="h-3.5 w-3.5 text-amber-500" />
+                          <span>{entry.workingHours} hrs</span>
+                        </div>
+                        <span className="text-[9px] text-slate-400 font-bold block">({entry.startTime} - {entry.endTime})</span>
+                        {entry.breakMinutes ? (
+                          <span className="text-[9px] text-rose-500 font-extrabold block mt-0.5">(- {entry.breakMinutes}m break)</span>
+                        ) : null}
+                      </>
+                    )}
                   </td>
                   <td className="py-3.5 px-4 font-semibold text-slate-500">
-                    ₹{entry.hourlyRate}/hr
+                    {entry.billingMode === 'load' ? (
+                      <span>₹{entry.pricePerLoad?.toLocaleString('en-IN') || 0}/load</span>
+                    ) : entry.billingMode === 'daily' ? (
+                      <span>₹{entry.dailyRentalRate?.toLocaleString('en-IN') || 0}/day</span>
+                    ) : (
+                      <span>₹{entry.hourlyRate}/hr</span>
+                    )}
                   </td>
                   <td className="py-3.5 px-4 font-black text-amber-600 text-xs">
                     ₹{entry.earnings.toLocaleString('en-IN')}
@@ -644,36 +700,131 @@ export default function DailyWorkEntries({
                   />
                 </div>
 
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-1">Hourly Rent Rate (₹)</label>
-                  <input
-                    type="number"
-                    required
-                    value={hourlyRate}
-                    onChange={(e) => setHourlyRate(Number(e.target.value))}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold text-slate-800 focus:outline-none focus:ring-1 focus:ring-amber-500"
-                  />
+                {/* Billing options selection */}
+                <div className="col-span-2">
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-1.5">Billing Basis / Calculation Mode</label>
+                  <div className="grid grid-cols-3 gap-2 bg-slate-100 p-1 rounded-xl">
+                    <button
+                      type="button"
+                      onClick={() => setBillingMode('hourly')}
+                      className={`py-1.5 px-2 rounded-lg text-xs font-bold transition-all text-center cursor-pointer ${
+                        billingMode === 'hourly'
+                          ? 'bg-amber-500 text-slate-950 shadow-xs'
+                          : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50/50'
+                      }`}
+                    >
+                      Hourly Rent
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setBillingMode('load')}
+                      className={`py-1.5 px-2 rounded-lg text-xs font-bold transition-all text-center cursor-pointer ${
+                        billingMode === 'load'
+                          ? 'bg-amber-500 text-slate-950 shadow-xs'
+                          : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50/50'
+                      }`}
+                    >
+                      Per Load
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setBillingMode('daily')}
+                      className={`py-1.5 px-2 rounded-lg text-xs font-bold transition-all text-center cursor-pointer ${
+                        billingMode === 'daily'
+                          ? 'bg-amber-500 text-slate-950 shadow-xs'
+                          : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50/50'
+                      }`}
+                    >
+                      Daily Rental
+                    </button>
+                  </div>
                 </div>
 
-                <div className="col-span-2 bg-slate-550/5 p-3 rounded-xl border border-slate-200/80 font-bold space-y-1">
-                  <span className="text-[9px] text-slate-400 block uppercase tracking-wide">AUTO CALCULATION PREVIEW</span>
-                  <div className="text-xs text-slate-700 flex justify-between">
-                    <span>Gross Shift Duration:</span>
-                    <span>{calculateWorkingHours(startTime, endTime, 0)} hrs</span>
+                {/* Conditional fields based on selected billing basis */}
+                {billingMode === 'hourly' ? (
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-1">Hourly Rent Rate (₹)</label>
+                    <input
+                      type="number"
+                      required
+                      min="0"
+                      value={hourlyRate}
+                      onChange={(e) => setHourlyRate(Number(e.target.value))}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold text-slate-800 focus:outline-none focus:ring-1 focus:ring-amber-500"
+                    />
                   </div>
-                  {breakMinutes > 0 && (
-                    <div className="text-xs text-rose-600 flex justify-between">
-                      <span>Lunch/Break Deduction:</span>
-                      <span>-{(breakMinutes / 60).toFixed(2)} hrs ({breakMinutes}m)</span>
+                ) : null}
+
+                {billingMode === 'load' ? (
+                  <>
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-1">Price Per Load (₹)</label>
+                      <input
+                        type="number"
+                        required
+                        min="0"
+                        value={pricePerLoad}
+                        onChange={(e) => setPricePerLoad(Number(e.target.value))}
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold text-slate-800 focus:outline-none focus:ring-1 focus:ring-amber-500"
+                      />
                     </div>
-                  )}
-                  <div className="text-xs text-slate-800 flex justify-between border-t border-slate-200 pt-1 mt-1 font-extrabold">
-                    <span>Net Working Hours:</span>
-                    <span className="text-amber-600">{computedHours} hrs</span>
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-1">Loads logged</label>
+                      <input
+                        type="number"
+                        required
+                        min="1"
+                        value={tripsCount}
+                        onChange={(e) => setTripsCount(Number(e.target.value))}
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold text-slate-800 focus:outline-none focus:ring-1 focus:ring-amber-500"
+                      />
+                    </div>
+                  </>
+                ) : null}
+
+                {billingMode === 'daily' ? (
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-1">One Day Rental Rate (₹)</label>
+                    <input
+                      type="number"
+                      required
+                      min="0"
+                      value={dailyRentalRate}
+                      onChange={(e) => setDailyRentalRate(Number(e.target.value))}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold text-slate-800 focus:outline-none focus:ring-1 focus:ring-amber-500"
+                    />
                   </div>
-                  <div className="text-xs text-slate-900 flex justify-between font-black">
-                    <span>Est. Earnings:</span>
-                    <span className="text-emerald-600">₹{computedEarnings.toLocaleString('en-IN')}</span>
+                ) : null}
+
+                <div className="col-span-2 bg-slate-50 p-4 rounded-xl border border-slate-250 font-bold space-y-1.5 shadow-xs">
+                  <span className="text-[9px] text-slate-450 block uppercase tracking-wider font-extrabold">AUTO CALCULATION PREVIEW</span>
+                  
+                  {billingMode === 'load' ? (
+                    <div className="text-xs text-slate-750 flex justify-between">
+                      <span>Formula:</span>
+                      <span className="text-slate-850 font-bold">{tripsCount} loads * ₹{pricePerLoad.toLocaleString('en-IN')}/load</span>
+                    </div>
+                  ) : billingMode === 'daily' ? (
+                    <div className="text-xs text-slate-750 flex justify-between">
+                      <span>Formula:</span>
+                      <span className="text-slate-850 font-bold">Flat 1 day charge</span>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="text-xs text-slate-750 flex justify-between">
+                        <span>Net Working Hours:</span>
+                        <span>{computedHours} hrs</span>
+                      </div>
+                      <div className="text-xs text-slate-750 flex justify-between">
+                        <span>Hourly Rent Rate:</span>
+                        <span>₹{hourlyRate.toLocaleString('en-IN')}/hr</span>
+                      </div>
+                    </>
+                  )}
+
+                  <div className="text-xs text-slate-900 flex justify-between font-black border-t border-slate-200 pt-1.5 mt-1.5">
+                    <span>Est. Total Earnings:</span>
+                    <span className="text-emerald-600 font-extrabold text-sm">₹{computedEarnings.toLocaleString('en-IN')}</span>
                   </div>
                 </div>
               </div>
@@ -681,8 +832,8 @@ export default function DailyWorkEntries({
               <div className="flex gap-3 pt-2">
                 <button
                   type="submit"
-                  disabled={submitting || computedHours <= 0}
-                  className="flex-1 py-2.5 px-4 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold rounded-xl text-xs transition-all text-center flex items-center justify-center gap-1.5 disabled:opacity-50 cursor-pointer"
+                  disabled={submitting || (billingMode === 'hourly' && computedHours <= 0) || (billingMode === 'load' && tripsCount <= 0)}
+                  className="flex-1 py-2.5 px-4 bg-amber-500 hover:bg-amber-600 text-slate-955 font-bold rounded-xl text-xs transition-all text-center flex items-center justify-center gap-1.5 disabled:opacity-50 cursor-pointer"
                 >
                   <FileSpreadsheet className="h-4 w-4" /> {submitting ? 'Logging...' : editingEntry ? 'Save Entry Details' : 'Write Work Entry Log'}
                 </button>

@@ -15,6 +15,9 @@ export interface Machine {
   status: 'Working' | 'Idle' | 'Repair';
   purchaseDate: string;
   notes: string;
+  lastServiceHours?: number;
+  serviceIntervalHours?: number;
+  currentMachineHours?: number;
 }
 
 export interface Operator {
@@ -52,6 +55,10 @@ export interface DailyWorkEntry {
   breakMinutes?: number; // Break duration in minutes
   billed?: boolean;
   billId?: string;
+  billingMode?: 'hourly' | 'load' | 'daily';
+  tripsCount?: number;
+  pricePerLoad?: number;
+  dailyRentalRate?: number;
 }
 
 export interface Expense {
@@ -68,6 +75,8 @@ export interface Expense {
   serviceCost: number;
   miscellaneousCost: number;
   notes: string;
+  openingMeterHours?: number;
+  closingMeterHours?: number;
 }
 
 export interface SalaryRecord {
@@ -121,4 +130,17 @@ export interface Stats {
   dieselCreditPending: number;
   activeMachinesCount: number;
   repairMachinesCount: number;
+}
+
+export interface CashbookEntry {
+  id: string;
+  date: string;
+  openingBalance: number;
+  cashIn: number; // Receipts
+  cashOut: number; // General cash out
+  salary: number; // Salary expense
+  diesel: number; // Diesel expense
+  repairs: number; // Repairs expense
+  misc: number; // Misc expense
+  notes: string;
 }

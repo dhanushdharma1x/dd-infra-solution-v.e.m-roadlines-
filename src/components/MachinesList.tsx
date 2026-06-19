@@ -24,6 +24,9 @@ export default function MachinesList({ machines, operators, role, onRefresh }: M
   const [status, setStatus] = useState<'Working' | 'Idle' | 'Repair'>('Idle');
   const [purchaseDate, setPurchaseDate] = useState('');
   const [notes, setNotes] = useState('');
+  const [currentMachineHours, setCurrentMachineHours] = useState<number>(0);
+  const [lastServiceHours, setLastServiceHours] = useState<number>(0);
+  const [serviceIntervalHours, setServiceIntervalHours] = useState<number>(250);
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
@@ -36,6 +39,9 @@ export default function MachinesList({ machines, operators, role, onRefresh }: M
     setStatus('Idle');
     setPurchaseDate('');
     setNotes('');
+    setCurrentMachineHours(0);
+    setLastServiceHours(0);
+    setServiceIntervalHours(250);
     setError('');
   };
 
@@ -59,7 +65,10 @@ export default function MachinesList({ machines, operators, role, onRefresh }: M
         assignedOperator,
         status,
         purchaseDate,
-        notes
+        notes,
+        currentMachineHours: Number(currentMachineHours) || 0,
+        lastServiceHours: Number(lastServiceHours) || 0,
+        serviceIntervalHours: Number(serviceIntervalHours) || 250
       };
       await setDoc(doc(db, 'machines', newId), machineDoc);
       setShowAddForm(false);
@@ -83,6 +92,9 @@ export default function MachinesList({ machines, operators, role, onRefresh }: M
     setStatus(mac.status || 'Idle');
     setPurchaseDate(mac.purchaseDate || '');
     setNotes(mac.notes || '');
+    setCurrentMachineHours(mac.currentMachineHours || 0);
+    setLastServiceHours(mac.lastServiceHours || 0);
+    setServiceIntervalHours(mac.serviceIntervalHours || 250);
   };
 
   const handleUpdate = async (e: React.FormEvent) => {
@@ -105,7 +117,10 @@ export default function MachinesList({ machines, operators, role, onRefresh }: M
         assignedOperator,
         status,
         purchaseDate,
-        notes
+        notes,
+        currentMachineHours: Number(currentMachineHours) || 0,
+        lastServiceHours: Number(lastServiceHours) || 0,
+        serviceIntervalHours: Number(serviceIntervalHours) || 250
       };
       await setDoc(doc(db, 'machines', editingMachine.id), updatedDoc);
       setEditingMachine(null);
@@ -184,11 +199,35 @@ export default function MachinesList({ machines, operators, role, onRefresh }: M
                     <User className="h-3 w-3 text-amber-500" /> {mac.assignedOperator || 'None'}
                   </span>
                 </div>
+                <div>
+                  <span className="text-slate-400 text-[9px] block font-bold uppercase">METER HOURS</span>
+                  <span className="text-slate-900 truncate block font-bold">{mac.currentMachineHours || 0} hrs</span>
+                </div>
+                <div>
+                  <span className="text-slate-400 text-[9px] block font-bold uppercase">LAST SERVICE</span>
+                  <span className="text-slate-900 truncate block font-bold">{mac.lastServiceHours || 0} hrs</span>
+                </div>
                 <div className="col-span-2">
                   <span className="text-slate-400 text-[9px] block font-bold uppercase">CURRENT SITE LOCATION</span>
                   <span className="text-slate-900 truncate block font-bold">{mac.currentSite || 'Not assigned'}</span>
                 </div>
               </div>
+
+              {/* Service Alert Check */}
+              {(() => {
+                const curHours = mac.currentMachineHours || 0;
+                const lastServ = mac.lastServiceHours || 0;
+                const interval = mac.serviceIntervalHours || 250;
+                const diff = curHours - lastServ;
+                const isDue = diff >= interval;
+                if (!isDue) return null;
+                return (
+                  <div className="mt-3 flex items-center gap-2 bg-rose-50 border border-rose-105 p-2.5 rounded-xl text-[10.5px] text-rose-800 font-extrabold animate-pulse">
+                    <span className="text-rose-500">⚠️</span>
+                    <span>Service Overdue by {diff - interval} hours!</span>
+                  </div>
+                );
+              })()}
 
               {mac.notes && (
                 <div className="text-[11px] text-slate-600 bg-slate-50 p-2.5 rounded-lg border border-slate-100 flex items-start gap-1.5 mt-3">
@@ -330,6 +369,43 @@ export default function MachinesList({ machines, operators, role, onRefresh }: M
                     onChange={(e) => setPurchaseDate(e.target.value)}
                     className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 font-medium focus:outline-none"
                   />
+                </div>
+
+                {/* Service Tracker Additions */}
+                <div className="col-span-2 bg-[#FAF5FF] border border-[#E8DBFA] p-3.5 rounded-xl space-y-2">
+                  <span className="text-[9.5px] font-black text-[#7C3AED] block uppercase tracking-wider">Fleet Service Scheduler & Meter (Hours)</span>
+                  <div className="grid grid-cols-3 gap-3">
+                    <div>
+                      <label className="block text-[9px] text-slate-500 font-bold uppercase mb-1">Current Hours</label>
+                      <input
+                        type="number"
+                        value={currentMachineHours || ''}
+                        onChange={(e) => setCurrentMachineHours(Number(e.target.value))}
+                        placeholder="e.g. 1450"
+                        className="w-full bg-white border border-[#FAF5FF] rounded-lg px-2 py-1.5 text-xs text-slate-800 font-bold focus:outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[9px] text-slate-500 font-bold uppercase mb-1">Last Serv Hours</label>
+                      <input
+                        type="number"
+                        value={lastServiceHours || ''}
+                        onChange={(e) => setLastServiceHours(Number(e.target.value))}
+                        placeholder="e.g. 1200"
+                        className="w-full bg-white border border-[#FAF5FF] rounded-lg px-2 py-1.5 text-xs text-slate-800 font-bold focus:outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[9px] text-slate-500 font-bold uppercase mb-1">Interval Hours</label>
+                      <input
+                        type="number"
+                        value={serviceIntervalHours || ''}
+                        onChange={(e) => setServiceIntervalHours(Number(e.target.value))}
+                        placeholder="e.g. 250"
+                        className="w-full bg-white border border-[#FAF5FF] rounded-lg px-2 py-1.5 text-xs text-slate-800 font-bold focus:outline-none"
+                      />
+                    </div>
+                  </div>
                 </div>
 
                 <div className="col-span-2">

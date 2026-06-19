@@ -20,6 +20,7 @@ import DailyWorkEntries from './components/DailyWorkEntries';
 import ExpensesList from './components/ExpensesList';
 import SalariesList from './components/SalariesList';
 import ClientBilling from './components/ClientBilling';
+import AdvancedERP from './components/AdvancedERP';
 
 // Icons
 import { 
@@ -30,7 +31,7 @@ export default function App() {
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [dataLoading, setDataLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<'overview' | 'machines' | 'work' | 'expenses' | 'salaries' | 'billing'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'machines' | 'work' | 'expenses' | 'salaries' | 'billing' | 'advanced'>('overview');
   
   // App Global State
   const [machines, setMachines] = useState<Machine[]>([]);
@@ -222,7 +223,8 @@ export default function App() {
                 { id: 'work', label: 'Operations Work Log', icon: FileSpreadsheet },
                 { id: 'expenses', label: 'Fuel & Expenses', icon: Fuel },
                 { id: 'salaries', label: 'Operators Payroll', icon: UserCheck },
-                { id: 'billing', label: 'Invoices & Billings', icon: Receipt }
+                { id: 'billing', label: 'Invoices & Billings', icon: Receipt },
+                { id: 'advanced', label: 'Advanced Financials', icon: Sparkles }
               ].map(tab => {
                 const IconComp = tab.icon;
                 const isSelected = activeTab === tab.id;
@@ -307,7 +309,8 @@ export default function App() {
               { id: 'work', label: 'Operations Work Log', icon: FileSpreadsheet },
               { id: 'expenses', label: 'Fuel & Expenses', icon: Fuel },
               { id: 'salaries', label: 'Operators Payroll', icon: UserCheck },
-              { id: 'billing', label: 'Invoices & Billings', icon: Receipt }
+              { id: 'billing', label: 'Invoices & Billings', icon: Receipt },
+              { id: 'advanced', label: 'Advanced Financials', icon: Sparkles }
             ].map(tab => {
               const IconComp = tab.icon;
               const isSelected = activeTab === tab.id;
@@ -412,6 +415,17 @@ export default function App() {
               onRefresh={loadData}
               showPaymentFormDirectly={directPaymentForm}
               onPaymentFormCloseDirectly={() => setDirectPaymentForm(false)}
+            />
+          )}
+
+          {activeTab === 'advanced' && (
+            <AdvancedERP
+              machines={machines}
+              expenses={expenses}
+              operators={operators}
+              workEntries={workEntries}
+              bills={bills}
+              role={userProfile.role}
             />
           )}
         </main>
